@@ -52,8 +52,8 @@ expression_data <- read.csv("C:/Users/tiffa/OneDrive/Desktop/Masters in Bioinfor
 n_samples <- ncol(expression_data) - 3  # since 3 last columns are healthy
 
 # Separate tumor and healthy sample columns
-tumor_samples <- expression_data[, 4:(n_samples+3)]   # assuming first 3 columns are annotation (RefSeq, symbol, name)
-healthy_samples <- expression_data[, (n_samples+4):ncol(expression_data)]
+tumor_samples <- expression_data[, 4:(ncol(expression_data) - 3)]
+healthy_samples <- expression_data[, (ncol(expression_data) - 2):ncol(expression_data)]
 
 # Initialize result dataframe
 results <- data.frame(
