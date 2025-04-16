@@ -81,7 +81,7 @@ for (i in 1:nrow(expression_data)) {
   }
 }
 
-# Adjust p-values using FDR (optional)
+# Adjust p-values using FDR)
 results$padj <- p.adjust(results$pvalue, method = "BH")
 
 # Add a column to label significant proteins
@@ -97,3 +97,9 @@ ggplot(results, aes(x = log2FC, y = -log10(padj))) +
        y = "-log10(FDR adjusted p-value)") +
   geom_vline(xintercept = c(-1, 1), linetype="dashed", color="black") +
   geom_hline(yintercept = -log10(0.05), linetype="dashed", color="black")
+
+# Plot looks good, lets look at the top hits
+top_hits <- results %>%
+  filter(significant == "Yes") %>%
+  arrange(padj) 
+# Don't see tp53 or cyld in it...
