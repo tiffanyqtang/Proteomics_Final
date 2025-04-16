@@ -45,3 +45,55 @@ ggplot(plot_data, aes(x = Group, y = Expression, fill = Group)) +
   scale_fill_manual(values = c("Tumor" = "#d95f02", "Healthy" = "#1b9e77")) +
   theme(text = element_text(size = 14))
 
+# doing the differential expression for the whole proteome:
+expression_data <- read.csv("C:/Users/tiffa/OneDrive/Desktop/Masters in Bioinformatics/Proteomics/77_cancer_proteomes_CPTAC_itraq.csv/77_cancer_proteomes_CPTAC_itraq.csv", header = TRUE)
+
+# Determine the number of columns
+n_samples <- ncol(expression_data) - 3  # since 3 last columns are healthy
+
+# Separate tumor and healthy sample columns
+tumor_samples <- expression_data[, 4:(n_samples+3)]   # assuming first 3 columns are annotation (RefSeq, symbol, name)
+healthy_samples <- expression_data[, (n_samples+4):ncol(expression_data)]
+
+# Initialize result dataframe
+results <- data.frame(
+  gene_symbol = expression_data$gene_symbol,
+  log2FC = NA,
+  pvalue = NA
+)
+
+# Loop through each row (protein)
+for (i in 1:nrow(expression_data)) {
+  tumor_values <- as.numeric(tumor_samples[i, ])
+  healthy_values <- as.numeric(healthy_samples[i, ])
+  
+  # Skip if too many NAs
+  if (sum(!is.na(tumor_values)) >= 3 & sum(!is.na(healthy_values)) >= 3) {
+    # t-test
+    ttest <- t.test(tumor_values, healthy_values)
+    
+    # Log2 Fold Change: tumor mean - healthy mean
+    log2fc <- mean(tumor_values, na.rm=TRUE) - mean(healthy_values, na.rm=TRUE)
+    
+    # Store results
+    results$log2FC[i] <- log2fc
+    results$pvalue[i] <- ttest$p.value
+  }
+}
+
+# Adjust p-values using FDR (optional)
+results$padj <- p.adjust(results$pvalue, method = "BH")
+
+# Add a column to label significant proteins
+results$significant <- ifelse(results$padj < 0.05 & abs(results$log2FC) > 1, "Yes", "No")
+
+# Volcano Plot
+ggplot(results, aes(x = log2FC, y = -log10(padj))) +
+  geom_point(aes(color = significant), alpha = 0.7) +
+  scale_color_manual(values = c("No" = "gray", "Yes" = "red")) +
+  theme_minimal() +
+  labs(title = "Volcano Plot of Differentially Expressed Proteins",
+       x = "log2 Fold Change (Tumor vs Healthy)",
+       y = "-log10(FDR adjusted p-value)") +
+  geom_vline(xintercept = c(-1, 1), linetype="dashed", color="black") +
+  geom_hline(yintercept = -log10(0.05), linetype="dashed", color="black")
