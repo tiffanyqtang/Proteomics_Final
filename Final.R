@@ -45,6 +45,7 @@ ggplot(plot_data, aes(x = Group, y = Expression, fill = Group)) +
   scale_fill_manual(values = c("Tumor" = "#d95f02", "Healthy" = "#1b9e77")) +
   theme(text = element_text(size = 14))
 
+# -----------------------------------------------------------------------------------
 # doing the differential expression for the whole proteome:
 expression_data <- read.csv("C:/Users/tiffa/OneDrive/Desktop/Masters in Bioinformatics/Proteomics/77_cancer_proteomes_CPTAC_itraq.csv/77_cancer_proteomes_CPTAC_itraq.csv", header = TRUE)
 
@@ -69,13 +70,9 @@ for (i in 1:nrow(expression_data)) {
   
   # Skip if too many NAs
   if (sum(!is.na(tumor_values)) >= 3 & sum(!is.na(healthy_values)) >= 3) {
-    # t-test
+    # t test 
     ttest <- t.test(tumor_values, healthy_values)
-    
-    # Log2 Fold Change: tumor mean - healthy mean
-    log2fc <- mean(tumor_values, na.rm=TRUE) - mean(healthy_values, na.rm=TRUE)
-    
-    # Store results
+    log2fc <- median(tumor_values, na.rm = TRUE) - median(healthy_values, na.rm = TRUE)
     results$log2FC[i] <- log2fc
     results$pvalue[i] <- ttest$p.value
   }
@@ -87,19 +84,27 @@ results$padj <- p.adjust(results$pvalue, method = "BH")
 # Add a column to label significant proteins
 results$significant <- ifelse(results$padj < 0.05 & abs(results$log2FC) > 1, "Yes", "No")
 
-# Volcano Plot
-ggplot(results, aes(x = log2FC, y = -log10(padj))) +
-  geom_point(aes(color = significant), alpha = 0.7) +
-  scale_color_manual(values = c("No" = "gray", "Yes" = "red")) +
-  theme_minimal() +
-  labs(title = "Volcano Plot of Differentially Expressed Proteins",
-       x = "log2 Fold Change (Tumor vs Healthy)",
-       y = "-log10(FDR adjusted p-value)") +
-  geom_vline(xintercept = c(-1, 1), linetype="dashed", color="black") +
-  geom_hline(yintercept = -log10(0.05), linetype="dashed", color="black")
+library(ggrepel)
 
-# Plot looks good, lets look at the top hits
-top_hits <- results %>%
-  filter(significant == "Yes") %>%
-  arrange(padj) 
-# Don't see tp53 or cyld in it...
+# Filter for the genes you want to label
+label_genes <- results %>%
+  filter(grepl("TP53|CYLD", gene_symbol, ignore.case = TRUE))
+
+# Volcano plot with raw p-values and labels
+ggplot(results, aes(x = log2FC, y = -log10(pvalue))) +
+  geom_point(aes(color = pvalue < 0.05 & abs(log2FC) > 1), alpha = 0.7) +
+  scale_color_manual(values = c("FALSE" = "gray", "TRUE" = "red")) +
+  geom_text_repel(
+    data = label_genes,
+    aes(label = gene_symbol),
+    size = 3,
+    max.overlaps = Inf
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Volcano Plot of Differentially Expressed Proteins (Raw p-values)",
+    x = "log2 Fold Change (Tumor vs Healthy)",
+    y = "-log10(Raw p-value)"
+  ) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black")
